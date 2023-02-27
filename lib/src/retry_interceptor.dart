@@ -12,6 +12,8 @@ typedef RetryEvaluator = FutureOr<bool> Function(DioError error, int attempt);
 class RetryInterceptor extends Interceptor {
   RetryInterceptor({
     required this.dio,
+    required this.onErrorFunction,
+    required this.onRequestFunction,
     this.logPrint,
     this.retries = 3,
     this.retryDelays = const [
@@ -35,7 +37,7 @@ class RetryInterceptor extends Interceptor {
         'retryableExtraStatuses',
       );
     }
-    if(retries < 0) {
+    if (retries < 0) {
       throw ArgumentError(
         '[retries] cannot be less than 0',
         'retries',
@@ -64,6 +66,12 @@ class RetryInterceptor extends Interceptor {
   /// If [retries] count more than [retryDelays] count,
   ///   the last element value of [retryDelays] will be used.
   final List<Duration> retryDelays;
+
+  final Future<dynamic> Function(DioError, ErrorInterceptorHandler)
+      onErrorFunction;
+
+  final void Function(RequestOptions, RequestInterceptorHandler)
+      onRequestFunction;
 
   /// Evaluating if a retry is necessary.regarding the error.
   ///
@@ -100,12 +108,15 @@ class RetryInterceptor extends Interceptor {
 
   @override
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
+    onRequestFunction(options, handler);
     _printErrorIfRequestHasMultipartFile(options);
     super.onRequest(options, handler);
   }
 
   @override
   Future<dynamic> onError(DioError err, ErrorInterceptorHandler handler) async {
+    await onErrorFunction(err, handler);
+
     if (err.requestOptions.disableRetry) {
       return super.onError(err, handler);
     }
